@@ -2973,6 +2973,357 @@ $jscomp.polyfill = function (e, r, p, m) {
   'use strict';
 
   var _defaults = {
+    html: '',
+    displayLength: 4000,
+    inDuration: 300,
+    outDuration: 375,
+    classes: '',
+    completeCallback: null,
+    activationPercent: 0.8
+  };
+
+  var Toast = function () {
+    function Toast(options) {
+      _classCallCheck(this, Toast);
+
+      /**
+       * Options for the toast
+       * @member Toast#options
+       */
+      this.options = $.extend({}, Toast.defaults, options);
+      this.message = this.options.html;
+
+      /**
+       * Describes current pan state toast
+       * @type {Boolean}
+       */
+      this.panning = false;
+
+      /**
+       * Time remaining until toast is removed
+       */
+      this.timeRemaining = this.options.displayLength;
+
+      if (Toast._toasts.length === 0) {
+        Toast._createContainer();
+      }
+
+      // Create new toast
+      Toast._toasts.push(this);
+      var toastElement = this._createToast();
+      toastElement.M_Toast = this;
+      this.el = toastElement;
+      this.$el = $(toastElement);
+      this._animateIn();
+      this._setTimer();
+    }
+
+    _createClass(Toast, [{
+      key: "_createToast",
+
+
+      /**
+       * Create toast and append it to toast container
+       */
+      value: function _createToast() {
+        var toast = document.createElement('div');
+        toast.classList.add('toast');
+
+        // Add custom classes onto toast
+        if (!!this.options.classes.length) {
+          $(toast).addClass(this.options.classes);
+        }
+
+        // Set content
+        if (typeof HTMLElement === 'object' ? this.message instanceof HTMLElement : this.message && typeof this.message === 'object' && this.message !== null && this.message.nodeType === 1 && typeof this.message.nodeName === 'string') {
+          toast.appendChild(this.message);
+
+          // Check if it is jQuery object
+        } else if (!!this.message.jquery) {
+          $(toast).append(this.message[0]);
+
+          // Insert as html;
+        } else {
+          toast.innerHTML = this.message;
+        }
+
+        // Append toasft
+        Toast._container.appendChild(toast);
+        return toast;
+      }
+
+      /**
+       * Animate in toast
+       */
+
+    }, {
+      key: "_animateIn",
+      value: function _animateIn() {
+        // Animate toast in
+        anim({
+          targets: this.el,
+          top: 0,
+          opacity: 1,
+          duration: this.options.inDuration,
+          easing: 'easeOutCubic'
+        });
+      }
+
+      /**
+       * Create setInterval which automatically removes toast when timeRemaining >= 0
+       * has been reached
+       */
+
+    }, {
+      key: "_setTimer",
+      value: function _setTimer() {
+        var _this10 = this;
+
+        if (this.timeRemaining !== Infinity) {
+          this.counterInterval = setInterval(function () {
+            // If toast is not being dragged, decrease its time remaining
+            if (!_this10.panning) {
+              _this10.timeRemaining -= 20;
+            }
+
+            // Animate toast out
+            if (_this10.timeRemaining <= 0) {
+              _this10.dismiss();
+            }
+          }, 20);
+        }
+      }
+
+      /**
+       * Dismiss toast with animation
+       */
+
+    }, {
+      key: "dismiss",
+      value: function dismiss() {
+        var _this11 = this;
+
+        window.clearInterval(this.counterInterval);
+        var activationDistance = this.el.offsetWidth * this.options.activationPercent;
+
+        if (this.wasSwiped) {
+          this.el.style.transition = 'transform .05s, opacity .05s';
+          this.el.style.transform = "translateX(" + activationDistance + "px)";
+          this.el.style.opacity = 0;
+        }
+
+        anim({
+          targets: this.el,
+          opacity: 0,
+          marginTop: -40,
+          duration: this.options.outDuration,
+          easing: 'easeOutExpo',
+          complete: function () {
+            // Call the optional callback
+            if (typeof _this11.options.completeCallback === 'function') {
+              _this11.options.completeCallback();
+            }
+            // Remove toast from DOM
+            _this11.$el.remove();
+            Toast._toasts.splice(Toast._toasts.indexOf(_this11), 1);
+            if (Toast._toasts.length === 0) {
+              Toast._removeContainer();
+            }
+          }
+        });
+      }
+    }], [{
+      key: "getInstance",
+
+
+      /**
+       * Get Instance
+       */
+      value: function getInstance(el) {
+        var domElem = !!el.jquery ? el[0] : el;
+        return domElem.M_Toast;
+      }
+
+      /**
+       * Append toast container and add event handlers
+       */
+
+    }, {
+      key: "_createContainer",
+      value: function _createContainer() {
+        var container = document.createElement('div');
+        container.setAttribute('id', 'toast-container');
+
+        // Add event handler
+        container.addEventListener('touchstart', Toast._onDragStart);
+        container.addEventListener('touchmove', Toast._onDragMove);
+        container.addEventListener('touchend', Toast._onDragEnd);
+
+        container.addEventListener('mousedown', Toast._onDragStart);
+        document.addEventListener('mousemove', Toast._onDragMove);
+        document.addEventListener('mouseup', Toast._onDragEnd);
+
+        document.body.appendChild(container);
+        Toast._container = container;
+      }
+
+      /**
+       * Remove toast container and event handlers
+       */
+
+    }, {
+      key: "_removeContainer",
+      value: function _removeContainer() {
+        // Add event handler
+        document.removeEventListener('mousemove', Toast._onDragMove);
+        document.removeEventListener('mouseup', Toast._onDragEnd);
+
+        $(Toast._container).remove();
+        Toast._container = null;
+      }
+
+      /**
+       * Begin drag handler
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_onDragStart",
+      value: function _onDragStart(e) {
+        if (e.target && $(e.target).closest('.toast').length) {
+          var $toast = $(e.target).closest('.toast');
+          var toast = $toast[0].M_Toast;
+          toast.panning = true;
+          Toast._draggedToast = toast;
+          toast.el.classList.add('panning');
+          toast.el.style.transition = '';
+          toast.startingXPos = Toast._xPos(e);
+          toast.time = Date.now();
+          toast.xPos = Toast._xPos(e);
+        }
+      }
+
+      /**
+       * Drag move handler
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_onDragMove",
+      value: function _onDragMove(e) {
+        if (!!Toast._draggedToast) {
+          e.preventDefault();
+          var toast = Toast._draggedToast;
+          toast.deltaX = Math.abs(toast.xPos - Toast._xPos(e));
+          toast.xPos = Toast._xPos(e);
+          toast.velocityX = toast.deltaX / (Date.now() - toast.time);
+          toast.time = Date.now();
+
+          var totalDeltaX = toast.xPos - toast.startingXPos;
+          var activationDistance = toast.el.offsetWidth * toast.options.activationPercent;
+          toast.el.style.transform = "translateX(" + totalDeltaX + "px)";
+          toast.el.style.opacity = 1 - Math.abs(totalDeltaX / activationDistance);
+        }
+      }
+
+      /**
+       * End drag handler
+       */
+
+    }, {
+      key: "_onDragEnd",
+      value: function _onDragEnd() {
+        if (!!Toast._draggedToast) {
+          var toast = Toast._draggedToast;
+          toast.panning = false;
+          toast.el.classList.remove('panning');
+
+          var totalDeltaX = toast.xPos - toast.startingXPos;
+          var activationDistance = toast.el.offsetWidth * toast.options.activationPercent;
+          var shouldBeDismissed = Math.abs(totalDeltaX) > activationDistance || toast.velocityX > 1;
+
+          // Remove toast
+          if (shouldBeDismissed) {
+            toast.wasSwiped = true;
+            toast.dismiss();
+
+            // Animate toast back to original position
+          } else {
+            toast.el.style.transition = 'transform .2s, opacity .2s';
+            toast.el.style.transform = '';
+            toast.el.style.opacity = '';
+          }
+          Toast._draggedToast = null;
+        }
+      }
+
+      /**
+       * Get x position of mouse or touch event
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_xPos",
+      value: function _xPos(e) {
+        if (e.targetTouches && e.targetTouches.length >= 1) {
+          return e.targetTouches[0].clientX;
+        }
+        // mouse event
+        return e.clientX;
+      }
+
+      /**
+       * Remove all toasts
+       */
+
+    }, {
+      key: "dismissAll",
+      value: function dismissAll() {
+        for (var toastIndex in Toast._toasts) {
+          Toast._toasts[toastIndex].dismiss();
+        }
+      }
+    }, {
+      key: "defaults",
+      get: function () {
+        return _defaults;
+      }
+    }]);
+
+    return Toast;
+  }();
+
+  /**
+   * @static
+   * @memberof Toast
+   * @type {Array.<Toast>}
+   */
+
+
+  Toast._toasts = [];
+
+  /**
+   * @static
+   * @memberof Toast
+   */
+  Toast._container = null;
+
+  /**
+   * @static
+   * @memberof Toast
+   * @type {Toast}
+   */
+  Toast._draggedToast = null;
+
+  M.Toast = Toast;
+  M.toast = function (options) {
+    return new Toast(options);
+  };
+})(cash, M.anime);
+;(function ($, anim) {
+  'use strict';
+
+  var _defaults = {
     edge: 'left',
     draggable: true,
     inDuration: 250,
@@ -3000,10 +3351,10 @@ $jscomp.polyfill = function (e, r, p, m) {
     function Sidenav(el, options) {
       _classCallCheck(this, Sidenav);
 
-      var _this10 = _possibleConstructorReturn(this, (Sidenav.__proto__ || Object.getPrototypeOf(Sidenav)).call(this, Sidenav, el, options));
+      var _this12 = _possibleConstructorReturn(this, (Sidenav.__proto__ || Object.getPrototypeOf(Sidenav)).call(this, Sidenav, el, options));
 
-      _this10.el.M_Sidenav = _this10;
-      _this10.id = _this10.$el.attr('id');
+      _this12.el.M_Sidenav = _this12;
+      _this12.id = _this12.$el.attr('id');
 
       /**
        * Options for the Sidenav
@@ -3017,38 +3368,38 @@ $jscomp.polyfill = function (e, r, p, m) {
        * @prop {Function} onCloseStart - Function called when sidenav starts exiting
        * @prop {Function} onCloseEnd - Function called when sidenav finishes exiting
        */
-      _this10.options = $.extend({}, Sidenav.defaults, options);
+      _this12.options = $.extend({}, Sidenav.defaults, options);
 
       /**
        * Describes open/close state of Sidenav
        * @type {Boolean}
        */
-      _this10.isOpen = false;
+      _this12.isOpen = false;
 
       /**
        * Describes if Sidenav is fixed
        * @type {Boolean}
        */
-      _this10.isFixed = _this10.el.classList.contains('sidenav-fixed');
+      _this12.isFixed = _this12.el.classList.contains('sidenav-fixed');
 
       /**
        * Describes if Sidenav is being draggeed
        * @type {Boolean}
        */
-      _this10.isDragged = false;
+      _this12.isDragged = false;
 
       // Window size variables for window resize checks
-      _this10.lastWindowWidth = window.innerWidth;
-      _this10.lastWindowHeight = window.innerHeight;
+      _this12.lastWindowWidth = window.innerWidth;
+      _this12.lastWindowHeight = window.innerHeight;
 
-      _this10._createOverlay();
-      _this10._createDragTarget();
-      _this10._setupEventHandlers();
-      _this10._setupClasses();
-      _this10._setupFixed();
+      _this12._createOverlay();
+      _this12._createDragTarget();
+      _this12._setupEventHandlers();
+      _this12._setupClasses();
+      _this12._setupFixed();
 
-      Sidenav._sidenavs.push(_this10);
-      return _this10;
+      Sidenav._sidenavs.push(_this12);
+      return _this12;
     }
 
     _createClass(Sidenav, [{
@@ -3485,7 +3836,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateSidenavIn",
       value: function _animateSidenavIn() {
-        var _this11 = this;
+        var _this13 = this;
 
         var slideOutPercent = this.options.edge === 'left' ? -1 : 1;
         if (this.isDragged) {
@@ -3500,8 +3851,8 @@ $jscomp.polyfill = function (e, r, p, m) {
           easing: 'easeOutQuad',
           complete: function () {
             // Run onOpenEnd callback
-            if (typeof _this11.options.onOpenEnd === 'function') {
-              _this11.options.onOpenEnd.call(_this11, _this11.el);
+            if (typeof _this13.options.onOpenEnd === 'function') {
+              _this13.options.onOpenEnd.call(_this13, _this13.el);
             }
           }
         });
@@ -3535,7 +3886,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateSidenavOut",
       value: function _animateSidenavOut() {
-        var _this12 = this;
+        var _this14 = this;
 
         var endPercent = this.options.edge === 'left' ? -1 : 1;
         var slideOutPercent = 0;
@@ -3551,8 +3902,8 @@ $jscomp.polyfill = function (e, r, p, m) {
           easing: 'easeOutQuad',
           complete: function () {
             // Run onOpenEnd callback
-            if (typeof _this12.options.onCloseEnd === 'function') {
-              _this12.options.onCloseEnd.call(_this12, _this12.el);
+            if (typeof _this14.options.onCloseEnd === 'function') {
+              _this14.options.onCloseEnd.call(_this14, _this14.el);
             }
           }
         });
@@ -3560,7 +3911,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateOverlayOut",
       value: function _animateOverlayOut() {
-        var _this13 = this;
+        var _this15 = this;
 
         anim.remove(this._overlay);
         anim({
@@ -3569,7 +3920,7 @@ $jscomp.polyfill = function (e, r, p, m) {
           duration: this.options.outDuration,
           easing: 'easeOutQuad',
           complete: function () {
-            $(_this13._overlay).css('display', 'none');
+            $(_this15._overlay).css('display', 'none');
           }
         });
       }
@@ -3645,9 +3996,9 @@ $jscomp.polyfill = function (e, r, p, m) {
     function Autocomplete(el, options) {
       _classCallCheck(this, Autocomplete);
 
-      var _this14 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
+      var _this16 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
 
-      _this14.el.M_Autocomplete = _this14;
+      _this16.el.M_Autocomplete = _this16;
 
       /**
        * Options for the autocomplete
@@ -3661,20 +4012,20 @@ $jscomp.polyfill = function (e, r, p, m) {
        * @prop {Boolean} noWrap
        * @prop {Function} onCycleTo
        */
-      _this14.options = $.extend({}, Autocomplete.defaults, options);
+      _this16.options = $.extend({}, Autocomplete.defaults, options);
 
       // Setup
-      _this14.isOpen = false;
-      _this14.count = 0;
-      _this14.activeIndex = -1;
-      _this14.oldVal;
-      _this14.$inputField = _this14.$el.closest('.input-field');
-      _this14.$active = $();
-      _this14._mousedown = false;
-      _this14._setupDropdown();
+      _this16.isOpen = false;
+      _this16.count = 0;
+      _this16.activeIndex = -1;
+      _this16.oldVal;
+      _this16.$inputField = _this16.$el.closest('.input-field');
+      _this16.$active = $();
+      _this16._mousedown = false;
+      _this16._setupDropdown();
 
-      _this14._setupEventHandlers();
-      return _this14;
+      _this16._setupEventHandlers();
+      return _this16;
     }
 
     _createClass(Autocomplete, [{
@@ -3746,7 +4097,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this15 = this;
+        var _this17 = this;
 
         this.container = document.createElement('ul');
         this.container.id = "autocomplete-options-" + M.guid();
@@ -3759,7 +4110,7 @@ $jscomp.polyfill = function (e, r, p, m) {
           closeOnClick: false,
           coverTrigger: false,
           onItemClick: function (itemEl) {
-            _this15.selectOption($(itemEl));
+            _this17.selectOption($(itemEl));
           }
         });
 
@@ -3971,7 +4322,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_renderDropdown",
       value: function _renderDropdown(data, val) {
-        var _this16 = this;
+        var _this18 = this;
 
         this._resetAutocomplete();
 
@@ -3998,7 +4349,7 @@ $jscomp.polyfill = function (e, r, p, m) {
         // Sort
         if (this.options.sortFunction) {
           var sortFunctionBound = function (a, b) {
-            return _this16.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
+            return _this18.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
           };
           matchingData.sort(sortFunctionBound);
         }
@@ -4134,30 +4485,30 @@ $jscomp.polyfill = function (e, r, p, m) {
       _classCallCheck(this, FormSelect);
 
       // Don't init if browser default version
-      var _this17 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
+      var _this19 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
 
-      if (_this17.$el.hasClass('browser-default')) {
-        return _possibleConstructorReturn(_this17);
+      if (_this19.$el.hasClass('browser-default')) {
+        return _possibleConstructorReturn(_this19);
       }
 
-      _this17.el.M_FormSelect = _this17;
+      _this19.el.M_FormSelect = _this19;
 
       /**
        * Options for the select
        * @member FormSelect#options
        */
-      _this17.options = $.extend({}, FormSelect.defaults, options);
+      _this19.options = $.extend({}, FormSelect.defaults, options);
 
-      _this17.isMultiple = _this17.$el.prop('multiple');
+      _this19.isMultiple = _this19.$el.prop('multiple');
 
       // Setup
-      _this17.el.tabIndex = -1;
-      _this17._keysSelected = {};
-      _this17._valueDict = {}; // Maps key to original and generated option element.
-      _this17._setupDropdown();
+      _this19.el.tabIndex = -1;
+      _this19._keysSelected = {};
+      _this19._valueDict = {}; // Maps key to original and generated option element.
+      _this19._setupDropdown();
 
-      _this17._setupEventHandlers();
-      return _this17;
+      _this19._setupEventHandlers();
+      return _this19;
     }
 
     _createClass(FormSelect, [{
@@ -4180,14 +4531,14 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupEventHandlers",
       value: function _setupEventHandlers() {
-        var _this18 = this;
+        var _this20 = this;
 
         this._handleSelectChangeBound = this._handleSelectChange.bind(this);
         this._handleOptionClickBound = this._handleOptionClick.bind(this);
         this._handleInputClickBound = this._handleInputClick.bind(this);
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.addEventListener('click', _this18._handleOptionClickBound);
+          el.addEventListener('click', _this20._handleOptionClickBound);
         });
         this.el.addEventListener('change', this._handleSelectChangeBound);
         this.input.addEventListener('click', this._handleInputClickBound);
@@ -4200,10 +4551,10 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_removeEventHandlers",
       value: function _removeEventHandlers() {
-        var _this19 = this;
+        var _this21 = this;
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.removeEventListener('click', _this19._handleOptionClickBound);
+          el.removeEventListener('click', _this21._handleOptionClickBound);
         });
         this.el.removeEventListener('change', this._handleSelectChangeBound);
         this.input.removeEventListener('click', this._handleInputClickBound);
@@ -4280,7 +4631,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this20 = this;
+        var _this22 = this;
 
         this.wrapper = document.createElement('div');
         $(this.wrapper).addClass('select-wrapper ' + this.options.classes);
@@ -4303,21 +4654,21 @@ $jscomp.polyfill = function (e, r, p, m) {
             if ($(el).is('option')) {
               // Direct descendant option.
               var optionEl = void 0;
-              if (_this20.isMultiple) {
-                optionEl = _this20._appendOptionWithIcon(_this20.$el, el, 'multiple');
+              if (_this22.isMultiple) {
+                optionEl = _this22._appendOptionWithIcon(_this22.$el, el, 'multiple');
               } else {
-                optionEl = _this20._appendOptionWithIcon(_this20.$el, el);
+                optionEl = _this22._appendOptionWithIcon(_this22.$el, el);
               }
 
-              _this20._addOptionToValueDict(el, optionEl);
+              _this22._addOptionToValueDict(el, optionEl);
             } else if ($(el).is('optgroup')) {
               // Optgroup.
               var selectOptions = $(el).children('option');
-              $(_this20.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
+              $(_this22.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
 
               selectOptions.each(function (el) {
-                var optionEl = _this20._appendOptionWithIcon(_this20.$el, el, 'optgroup-option');
-                _this20._addOptionToValueDict(el, optionEl);
+                var optionEl = _this22._appendOptionWithIcon(_this22.$el, el, 'optgroup-option');
+                _this22._addOptionToValueDict(el, optionEl);
               });
             }
           });
@@ -4348,20 +4699,20 @@ $jscomp.polyfill = function (e, r, p, m) {
 
           // Add callback for centering selected option when dropdown content is scrollable
           dropdownOptions.onOpenEnd = function (el) {
-            var selectedOption = $(_this20.dropdownOptions).find('.selected').first();
+            var selectedOption = $(_this22.dropdownOptions).find('.selected').first();
 
             if (selectedOption.length) {
               // Focus selected option in dropdown
               M.keyDown = true;
-              _this20.dropdown.focusedIndex = selectedOption.index();
-              _this20.dropdown._focusFocusedItem();
+              _this22.dropdown.focusedIndex = selectedOption.index();
+              _this22.dropdown._focusFocusedItem();
               M.keyDown = false;
 
               // Handle scrolling to selected option
-              if (_this20.dropdown.isScrollable) {
-                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this20.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
-                scrollOffset -= _this20.dropdownOptions.clientHeight / 2; // center in dropdown
-                _this20.dropdownOptions.scrollTop = scrollOffset;
+              if (_this22.dropdown.isScrollable) {
+                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this22.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
+                scrollOffset -= _this22.dropdownOptions.clientHeight / 2; // center in dropdown
+                _this22.dropdownOptions.scrollTop = scrollOffset;
               }
             }
           };

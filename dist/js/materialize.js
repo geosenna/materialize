@@ -2534,445 +2534,6 @@ $jscomp.polyfill = function (e, r, p, m) {
   'use strict';
 
   var _defaults = {
-    opacity: 0.5,
-    inDuration: 250,
-    outDuration: 250,
-    onOpenStart: null,
-    onOpenEnd: null,
-    onCloseStart: null,
-    onCloseEnd: null,
-    preventScrolling: true,
-    dismissible: true,
-    startingTop: '4%',
-    endingTop: '10%'
-  };
-
-  /**
-   * @class
-   *
-   */
-
-  var Modal = function (_Component2) {
-    _inherits(Modal, _Component2);
-
-    /**
-     * Construct Modal instance and set up overlay
-     * @constructor
-     * @param {Element} el
-     * @param {Object} options
-     */
-    function Modal(el, options) {
-      _classCallCheck(this, Modal);
-
-      var _this7 = _possibleConstructorReturn(this, (Modal.__proto__ || Object.getPrototypeOf(Modal)).call(this, Modal, el, options));
-
-      _this7.el.M_Modal = _this7;
-
-      /**
-       * Options for the modal
-       * @member Modal#options
-       * @prop {Number} [opacity=0.5] - Opacity of the modal overlay
-       * @prop {Number} [inDuration=250] - Length in ms of enter transition
-       * @prop {Number} [outDuration=250] - Length in ms of exit transition
-       * @prop {Function} onOpenStart - Callback function called before modal is opened
-       * @prop {Function} onOpenEnd - Callback function called after modal is opened
-       * @prop {Function} onCloseStart - Callback function called before modal is closed
-       * @prop {Function} onCloseEnd - Callback function called after modal is closed
-       * @prop {Boolean} [dismissible=true] - Allow modal to be dismissed by keyboard or overlay click
-       * @prop {String} [startingTop='4%'] - startingTop
-       * @prop {String} [endingTop='10%'] - endingTop
-       */
-      _this7.options = $.extend({}, Modal.defaults, options);
-
-      /**
-       * Describes open/close state of modal
-       * @type {Boolean}
-       */
-      _this7.isOpen = false;
-
-      _this7.id = _this7.$el.attr('id');
-      _this7._openingTrigger = undefined;
-      _this7.$overlay = $('<div class="modal-overlay"></div>');
-      _this7.el.tabIndex = 0;
-      _this7._nthModalOpened = 0;
-
-      Modal._count++;
-      _this7._setupEventHandlers();
-      return _this7;
-    }
-
-    _createClass(Modal, [{
-      key: "destroy",
-
-
-      /**
-       * Teardown component
-       */
-      value: function destroy() {
-        Modal._count--;
-        this._removeEventHandlers();
-        this.el.removeAttribute('style');
-        this.$overlay.remove();
-        this.el.M_Modal = undefined;
-      }
-
-      /**
-       * Setup Event Handlers
-       */
-
-    }, {
-      key: "_setupEventHandlers",
-      value: function _setupEventHandlers() {
-        this._handleOverlayClickBound = this._handleOverlayClick.bind(this);
-        this._handleModalCloseClickBound = this._handleModalCloseClick.bind(this);
-
-        if (Modal._count === 1) {
-          document.body.addEventListener('click', this._handleTriggerClick);
-        }
-        this.$overlay[0].addEventListener('click', this._handleOverlayClickBound);
-        this.el.addEventListener('click', this._handleModalCloseClickBound);
-      }
-
-      /**
-       * Remove Event Handlers
-       */
-
-    }, {
-      key: "_removeEventHandlers",
-      value: function _removeEventHandlers() {
-        if (Modal._count === 0) {
-          document.body.removeEventListener('click', this._handleTriggerClick);
-        }
-        this.$overlay[0].removeEventListener('click', this._handleOverlayClickBound);
-        this.el.removeEventListener('click', this._handleModalCloseClickBound);
-      }
-
-      /**
-       * Handle Trigger Click
-       * @param {Event} e
-       */
-
-    }, {
-      key: "_handleTriggerClick",
-      value: function _handleTriggerClick(e) {
-        var $trigger = $(e.target).closest('.modal-trigger');
-        if ($trigger.length) {
-          var modalId = M.getIdFromTrigger($trigger[0]);
-          var modalInstance = document.getElementById(modalId).M_Modal;
-          if (modalInstance) {
-            modalInstance.open($trigger);
-          }
-          e.preventDefault();
-        }
-      }
-
-      /**
-       * Handle Overlay Click
-       */
-
-    }, {
-      key: "_handleOverlayClick",
-      value: function _handleOverlayClick() {
-        if (this.options.dismissible) {
-          this.close();
-        }
-      }
-
-      /**
-       * Handle Modal Close Click
-       * @param {Event} e
-       */
-
-    }, {
-      key: "_handleModalCloseClick",
-      value: function _handleModalCloseClick(e) {
-        var $closeTrigger = $(e.target).closest('.modal-close');
-        if ($closeTrigger.length) {
-          this.close();
-        }
-      }
-
-      /**
-       * Handle Keydown
-       * @param {Event} e
-       */
-
-    }, {
-      key: "_handleKeydown",
-      value: function _handleKeydown(e) {
-        // ESC key
-        if (e.keyCode === 27 && this.options.dismissible) {
-          this.close();
-        }
-      }
-
-      /**
-       * Handle Focus
-       * @param {Event} e
-       */
-
-    }, {
-      key: "_handleFocus",
-      value: function _handleFocus(e) {
-        // Only trap focus if this modal is the last model opened (prevents loops in nested modals).
-        if (!this.el.contains(e.target) && this._nthModalOpened === Modal._modalsOpen) {
-          this.el.focus();
-        }
-      }
-
-      /**
-       * Animate in modal
-       */
-
-    }, {
-      key: "_animateIn",
-      value: function _animateIn() {
-        var _this8 = this;
-
-        // Set initial styles
-        $.extend(this.el.style, {
-          display: 'block',
-          opacity: 0
-        });
-        $.extend(this.$overlay[0].style, {
-          display: 'block',
-          opacity: 0
-        });
-
-        // Animate overlay
-        anim({
-          targets: this.$overlay[0],
-          opacity: this.options.opacity,
-          duration: this.options.inDuration,
-          easing: 'easeOutQuad'
-        });
-
-        // Define modal animation options
-        var enterAnimOptions = {
-          targets: this.el,
-          duration: this.options.inDuration,
-          easing: 'easeOutCubic',
-          // Handle modal onOpenEnd callback
-          complete: function () {
-            if (typeof _this8.options.onOpenEnd === 'function') {
-              _this8.options.onOpenEnd.call(_this8, _this8.el, _this8._openingTrigger);
-            }
-          }
-        };
-
-        // Bottom sheet animation
-        if (this.el.classList.contains('bottom-sheet')) {
-          $.extend(enterAnimOptions, {
-            bottom: 0,
-            opacity: 1
-          });
-          anim(enterAnimOptions);
-
-          // Normal modal animation
-        } else {
-          $.extend(enterAnimOptions, {
-            top: [this.options.startingTop, this.options.endingTop],
-            opacity: 1,
-            scaleX: [0.8, 1],
-            scaleY: [0.8, 1]
-          });
-          anim(enterAnimOptions);
-        }
-      }
-
-      /**
-       * Animate out modal
-       */
-
-    }, {
-      key: "_animateOut",
-      value: function _animateOut() {
-        var _this9 = this;
-
-        // Animate overlay
-        anim({
-          targets: this.$overlay[0],
-          opacity: 0,
-          duration: this.options.outDuration,
-          easing: 'easeOutQuart'
-        });
-
-        // Define modal animation options
-        var exitAnimOptions = {
-          targets: this.el,
-          duration: this.options.outDuration,
-          easing: 'easeOutCubic',
-          // Handle modal ready callback
-          complete: function () {
-            _this9.el.style.display = 'none';
-            _this9.$overlay.remove();
-
-            // Call onCloseEnd callback
-            if (typeof _this9.options.onCloseEnd === 'function') {
-              _this9.options.onCloseEnd.call(_this9, _this9.el);
-            }
-          }
-        };
-
-        // Bottom sheet animation
-        if (this.el.classList.contains('bottom-sheet')) {
-          $.extend(exitAnimOptions, {
-            bottom: '-100%',
-            opacity: 0
-          });
-          anim(exitAnimOptions);
-
-          // Normal modal animation
-        } else {
-          $.extend(exitAnimOptions, {
-            top: [this.options.endingTop, this.options.startingTop],
-            opacity: 0,
-            scaleX: 0.8,
-            scaleY: 0.8
-          });
-          anim(exitAnimOptions);
-        }
-      }
-
-      /**
-       * Open Modal
-       * @param {cash} [$trigger]
-       */
-
-    }, {
-      key: "open",
-      value: function open($trigger) {
-        if (this.isOpen) {
-          return;
-        }
-
-        this.isOpen = true;
-        Modal._modalsOpen++;
-        this._nthModalOpened = Modal._modalsOpen;
-
-        // Set Z-Index based on number of currently open modals
-        this.$overlay[0].style.zIndex = 1000 + Modal._modalsOpen * 2;
-        this.el.style.zIndex = 1000 + Modal._modalsOpen * 2 + 1;
-
-        // Set opening trigger, undefined indicates modal was opened by javascript
-        this._openingTrigger = !!$trigger ? $trigger[0] : undefined;
-
-        // onOpenStart callback
-        if (typeof this.options.onOpenStart === 'function') {
-          this.options.onOpenStart.call(this, this.el, this._openingTrigger);
-        }
-
-        if (this.options.preventScrolling) {
-          document.body.style.overflow = 'hidden';
-        }
-
-        this.el.classList.add('open');
-        this.el.insertAdjacentElement('afterend', this.$overlay[0]);
-
-        if (this.options.dismissible) {
-          this._handleKeydownBound = this._handleKeydown.bind(this);
-          this._handleFocusBound = this._handleFocus.bind(this);
-          document.addEventListener('keydown', this._handleKeydownBound);
-          document.addEventListener('focus', this._handleFocusBound, true);
-        }
-
-        anim.remove(this.el);
-        anim.remove(this.$overlay[0]);
-        this._animateIn();
-
-        // Focus modal
-        this.el.focus();
-
-        return this;
-      }
-
-      /**
-       * Close Modal
-       */
-
-    }, {
-      key: "close",
-      value: function close() {
-        if (!this.isOpen) {
-          return;
-        }
-
-        this.isOpen = false;
-        Modal._modalsOpen--;
-        this._nthModalOpened = 0;
-
-        // Call onCloseStart callback
-        if (typeof this.options.onCloseStart === 'function') {
-          this.options.onCloseStart.call(this, this.el);
-        }
-
-        this.el.classList.remove('open');
-
-        // Enable body scrolling only if there are no more modals open.
-        if (Modal._modalsOpen === 0) {
-          document.body.style.overflow = '';
-        }
-
-        if (this.options.dismissible) {
-          document.removeEventListener('keydown', this._handleKeydownBound);
-          document.removeEventListener('focus', this._handleFocusBound, true);
-        }
-
-        anim.remove(this.el);
-        anim.remove(this.$overlay[0]);
-        this._animateOut();
-        return this;
-      }
-    }], [{
-      key: "init",
-      value: function init(els, options) {
-        return _get(Modal.__proto__ || Object.getPrototypeOf(Modal), "init", this).call(this, this, els, options);
-      }
-
-      /**
-       * Get Instance
-       */
-
-    }, {
-      key: "getInstance",
-      value: function getInstance(el) {
-        var domElem = !!el.jquery ? el[0] : el;
-        return domElem.M_Modal;
-      }
-    }, {
-      key: "defaults",
-      get: function () {
-        return _defaults;
-      }
-    }]);
-
-    return Modal;
-  }(Component);
-
-  /**
-   * @static
-   * @memberof Modal
-   */
-
-
-  Modal._modalsOpen = 0;
-
-  /**
-   * @static
-   * @memberof Modal
-   */
-  Modal._count = 0;
-
-  M.Modal = Modal;
-
-  if (M.jQueryLoaded) {
-    M.initializeJqueryWrapper(Modal, 'modal', 'M_Modal');
-  }
-})(cash, M.anime);
-;(function ($, anim) {
-  'use strict';
-
-  var _defaults = {
     html: '',
     displayLength: 4000,
     inDuration: 300,
@@ -3077,18 +2638,18 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setTimer",
       value: function _setTimer() {
-        var _this10 = this;
+        var _this7 = this;
 
         if (this.timeRemaining !== Infinity) {
           this.counterInterval = setInterval(function () {
             // If toast is not being dragged, decrease its time remaining
-            if (!_this10.panning) {
-              _this10.timeRemaining -= 20;
+            if (!_this7.panning) {
+              _this7.timeRemaining -= 20;
             }
 
             // Animate toast out
-            if (_this10.timeRemaining <= 0) {
-              _this10.dismiss();
+            if (_this7.timeRemaining <= 0) {
+              _this7.dismiss();
             }
           }, 20);
         }
@@ -3101,7 +2662,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "dismiss",
       value: function dismiss() {
-        var _this11 = this;
+        var _this8 = this;
 
         window.clearInterval(this.counterInterval);
         var activationDistance = this.el.offsetWidth * this.options.activationPercent;
@@ -3120,12 +2681,12 @@ $jscomp.polyfill = function (e, r, p, m) {
           easing: 'easeOutExpo',
           complete: function () {
             // Call the optional callback
-            if (typeof _this11.options.completeCallback === 'function') {
-              _this11.options.completeCallback();
+            if (typeof _this8.options.completeCallback === 'function') {
+              _this8.options.completeCallback();
             }
             // Remove toast from DOM
-            _this11.$el.remove();
-            Toast._toasts.splice(Toast._toasts.indexOf(_this11), 1);
+            _this8.$el.remove();
+            Toast._toasts.splice(Toast._toasts.indexOf(_this8), 1);
             if (Toast._toasts.length === 0) {
               Toast._removeContainer();
             }
@@ -3339,8 +2900,8 @@ $jscomp.polyfill = function (e, r, p, m) {
    * @class
    */
 
-  var Sidenav = function (_Component3) {
-    _inherits(Sidenav, _Component3);
+  var Sidenav = function (_Component2) {
+    _inherits(Sidenav, _Component2);
 
     /**
      * Construct Sidenav instance and set up overlay
@@ -3351,10 +2912,10 @@ $jscomp.polyfill = function (e, r, p, m) {
     function Sidenav(el, options) {
       _classCallCheck(this, Sidenav);
 
-      var _this12 = _possibleConstructorReturn(this, (Sidenav.__proto__ || Object.getPrototypeOf(Sidenav)).call(this, Sidenav, el, options));
+      var _this9 = _possibleConstructorReturn(this, (Sidenav.__proto__ || Object.getPrototypeOf(Sidenav)).call(this, Sidenav, el, options));
 
-      _this12.el.M_Sidenav = _this12;
-      _this12.id = _this12.$el.attr('id');
+      _this9.el.M_Sidenav = _this9;
+      _this9.id = _this9.$el.attr('id');
 
       /**
        * Options for the Sidenav
@@ -3368,38 +2929,38 @@ $jscomp.polyfill = function (e, r, p, m) {
        * @prop {Function} onCloseStart - Function called when sidenav starts exiting
        * @prop {Function} onCloseEnd - Function called when sidenav finishes exiting
        */
-      _this12.options = $.extend({}, Sidenav.defaults, options);
+      _this9.options = $.extend({}, Sidenav.defaults, options);
 
       /**
        * Describes open/close state of Sidenav
        * @type {Boolean}
        */
-      _this12.isOpen = false;
+      _this9.isOpen = false;
 
       /**
        * Describes if Sidenav is fixed
        * @type {Boolean}
        */
-      _this12.isFixed = _this12.el.classList.contains('sidenav-fixed');
+      _this9.isFixed = _this9.el.classList.contains('sidenav-fixed');
 
       /**
        * Describes if Sidenav is being draggeed
        * @type {Boolean}
        */
-      _this12.isDragged = false;
+      _this9.isDragged = false;
 
       // Window size variables for window resize checks
-      _this12.lastWindowWidth = window.innerWidth;
-      _this12.lastWindowHeight = window.innerHeight;
+      _this9.lastWindowWidth = window.innerWidth;
+      _this9.lastWindowHeight = window.innerHeight;
 
-      _this12._createOverlay();
-      _this12._createDragTarget();
-      _this12._setupEventHandlers();
-      _this12._setupClasses();
-      _this12._setupFixed();
+      _this9._createOverlay();
+      _this9._createDragTarget();
+      _this9._setupEventHandlers();
+      _this9._setupClasses();
+      _this9._setupFixed();
 
-      Sidenav._sidenavs.push(_this12);
-      return _this12;
+      Sidenav._sidenavs.push(_this9);
+      return _this9;
     }
 
     _createClass(Sidenav, [{
@@ -3836,7 +3397,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateSidenavIn",
       value: function _animateSidenavIn() {
-        var _this13 = this;
+        var _this10 = this;
 
         var slideOutPercent = this.options.edge === 'left' ? -1 : 1;
         if (this.isDragged) {
@@ -3851,8 +3412,8 @@ $jscomp.polyfill = function (e, r, p, m) {
           easing: 'easeOutQuad',
           complete: function () {
             // Run onOpenEnd callback
-            if (typeof _this13.options.onOpenEnd === 'function') {
-              _this13.options.onOpenEnd.call(_this13, _this13.el);
+            if (typeof _this10.options.onOpenEnd === 'function') {
+              _this10.options.onOpenEnd.call(_this10, _this10.el);
             }
           }
         });
@@ -3886,7 +3447,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateSidenavOut",
       value: function _animateSidenavOut() {
-        var _this14 = this;
+        var _this11 = this;
 
         var endPercent = this.options.edge === 'left' ? -1 : 1;
         var slideOutPercent = 0;
@@ -3902,8 +3463,8 @@ $jscomp.polyfill = function (e, r, p, m) {
           easing: 'easeOutQuad',
           complete: function () {
             // Run onOpenEnd callback
-            if (typeof _this14.options.onCloseEnd === 'function') {
-              _this14.options.onCloseEnd.call(_this14, _this14.el);
+            if (typeof _this11.options.onCloseEnd === 'function') {
+              _this11.options.onCloseEnd.call(_this11, _this11.el);
             }
           }
         });
@@ -3911,7 +3472,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_animateOverlayOut",
       value: function _animateOverlayOut() {
-        var _this15 = this;
+        var _this12 = this;
 
         anim.remove(this._overlay);
         anim({
@@ -3920,7 +3481,7 @@ $jscomp.polyfill = function (e, r, p, m) {
           duration: this.options.outDuration,
           easing: 'easeOutQuad',
           complete: function () {
-            $(_this15._overlay).css('display', 'none');
+            $(_this12._overlay).css('display', 'none');
           }
         });
       }
@@ -3984,8 +3545,8 @@ $jscomp.polyfill = function (e, r, p, m) {
    *
    */
 
-  var Autocomplete = function (_Component4) {
-    _inherits(Autocomplete, _Component4);
+  var Autocomplete = function (_Component3) {
+    _inherits(Autocomplete, _Component3);
 
     /**
      * Construct Autocomplete instance
@@ -3996,9 +3557,9 @@ $jscomp.polyfill = function (e, r, p, m) {
     function Autocomplete(el, options) {
       _classCallCheck(this, Autocomplete);
 
-      var _this16 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
+      var _this13 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
 
-      _this16.el.M_Autocomplete = _this16;
+      _this13.el.M_Autocomplete = _this13;
 
       /**
        * Options for the autocomplete
@@ -4012,20 +3573,20 @@ $jscomp.polyfill = function (e, r, p, m) {
        * @prop {Boolean} noWrap
        * @prop {Function} onCycleTo
        */
-      _this16.options = $.extend({}, Autocomplete.defaults, options);
+      _this13.options = $.extend({}, Autocomplete.defaults, options);
 
       // Setup
-      _this16.isOpen = false;
-      _this16.count = 0;
-      _this16.activeIndex = -1;
-      _this16.oldVal;
-      _this16.$inputField = _this16.$el.closest('.input-field');
-      _this16.$active = $();
-      _this16._mousedown = false;
-      _this16._setupDropdown();
+      _this13.isOpen = false;
+      _this13.count = 0;
+      _this13.activeIndex = -1;
+      _this13.oldVal;
+      _this13.$inputField = _this13.$el.closest('.input-field');
+      _this13.$active = $();
+      _this13._mousedown = false;
+      _this13._setupDropdown();
 
-      _this16._setupEventHandlers();
-      return _this16;
+      _this13._setupEventHandlers();
+      return _this13;
     }
 
     _createClass(Autocomplete, [{
@@ -4097,7 +3658,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this17 = this;
+        var _this14 = this;
 
         this.container = document.createElement('ul');
         this.container.id = "autocomplete-options-" + M.guid();
@@ -4110,7 +3671,7 @@ $jscomp.polyfill = function (e, r, p, m) {
           closeOnClick: false,
           coverTrigger: false,
           onItemClick: function (itemEl) {
-            _this17.selectOption($(itemEl));
+            _this14.selectOption($(itemEl));
           }
         });
 
@@ -4322,7 +3883,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_renderDropdown",
       value: function _renderDropdown(data, val) {
-        var _this18 = this;
+        var _this15 = this;
 
         this._resetAutocomplete();
 
@@ -4349,7 +3910,7 @@ $jscomp.polyfill = function (e, r, p, m) {
         // Sort
         if (this.options.sortFunction) {
           var sortFunctionBound = function (a, b) {
-            return _this18.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
+            return _this15.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
           };
           matchingData.sort(sortFunctionBound);
         }
@@ -4472,8 +4033,8 @@ $jscomp.polyfill = function (e, r, p, m) {
    *
    */
 
-  var FormSelect = function (_Component5) {
-    _inherits(FormSelect, _Component5);
+  var FormSelect = function (_Component4) {
+    _inherits(FormSelect, _Component4);
 
     /**
      * Construct FormSelect instance
@@ -4485,30 +4046,30 @@ $jscomp.polyfill = function (e, r, p, m) {
       _classCallCheck(this, FormSelect);
 
       // Don't init if browser default version
-      var _this19 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
+      var _this16 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
 
-      if (_this19.$el.hasClass('browser-default')) {
-        return _possibleConstructorReturn(_this19);
+      if (_this16.$el.hasClass('browser-default')) {
+        return _possibleConstructorReturn(_this16);
       }
 
-      _this19.el.M_FormSelect = _this19;
+      _this16.el.M_FormSelect = _this16;
 
       /**
        * Options for the select
        * @member FormSelect#options
        */
-      _this19.options = $.extend({}, FormSelect.defaults, options);
+      _this16.options = $.extend({}, FormSelect.defaults, options);
 
-      _this19.isMultiple = _this19.$el.prop('multiple');
+      _this16.isMultiple = _this16.$el.prop('multiple');
 
       // Setup
-      _this19.el.tabIndex = -1;
-      _this19._keysSelected = {};
-      _this19._valueDict = {}; // Maps key to original and generated option element.
-      _this19._setupDropdown();
+      _this16.el.tabIndex = -1;
+      _this16._keysSelected = {};
+      _this16._valueDict = {}; // Maps key to original and generated option element.
+      _this16._setupDropdown();
 
-      _this19._setupEventHandlers();
-      return _this19;
+      _this16._setupEventHandlers();
+      return _this16;
     }
 
     _createClass(FormSelect, [{
@@ -4531,14 +4092,14 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupEventHandlers",
       value: function _setupEventHandlers() {
-        var _this20 = this;
+        var _this17 = this;
 
         this._handleSelectChangeBound = this._handleSelectChange.bind(this);
         this._handleOptionClickBound = this._handleOptionClick.bind(this);
         this._handleInputClickBound = this._handleInputClick.bind(this);
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.addEventListener('click', _this20._handleOptionClickBound);
+          el.addEventListener('click', _this17._handleOptionClickBound);
         });
         this.el.addEventListener('change', this._handleSelectChangeBound);
         this.input.addEventListener('click', this._handleInputClickBound);
@@ -4551,10 +4112,10 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_removeEventHandlers",
       value: function _removeEventHandlers() {
-        var _this21 = this;
+        var _this18 = this;
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.removeEventListener('click', _this21._handleOptionClickBound);
+          el.removeEventListener('click', _this18._handleOptionClickBound);
         });
         this.el.removeEventListener('change', this._handleSelectChangeBound);
         this.input.removeEventListener('click', this._handleInputClickBound);
@@ -4631,7 +4192,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this22 = this;
+        var _this19 = this;
 
         this.wrapper = document.createElement('div');
         $(this.wrapper).addClass('select-wrapper ' + this.options.classes);
@@ -4654,21 +4215,21 @@ $jscomp.polyfill = function (e, r, p, m) {
             if ($(el).is('option')) {
               // Direct descendant option.
               var optionEl = void 0;
-              if (_this22.isMultiple) {
-                optionEl = _this22._appendOptionWithIcon(_this22.$el, el, 'multiple');
+              if (_this19.isMultiple) {
+                optionEl = _this19._appendOptionWithIcon(_this19.$el, el, 'multiple');
               } else {
-                optionEl = _this22._appendOptionWithIcon(_this22.$el, el);
+                optionEl = _this19._appendOptionWithIcon(_this19.$el, el);
               }
 
-              _this22._addOptionToValueDict(el, optionEl);
+              _this19._addOptionToValueDict(el, optionEl);
             } else if ($(el).is('optgroup')) {
               // Optgroup.
               var selectOptions = $(el).children('option');
-              $(_this22.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
+              $(_this19.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
 
               selectOptions.each(function (el) {
-                var optionEl = _this22._appendOptionWithIcon(_this22.$el, el, 'optgroup-option');
-                _this22._addOptionToValueDict(el, optionEl);
+                var optionEl = _this19._appendOptionWithIcon(_this19.$el, el, 'optgroup-option');
+                _this19._addOptionToValueDict(el, optionEl);
               });
             }
           });
@@ -4699,20 +4260,20 @@ $jscomp.polyfill = function (e, r, p, m) {
 
           // Add callback for centering selected option when dropdown content is scrollable
           dropdownOptions.onOpenEnd = function (el) {
-            var selectedOption = $(_this22.dropdownOptions).find('.selected').first();
+            var selectedOption = $(_this19.dropdownOptions).find('.selected').first();
 
             if (selectedOption.length) {
               // Focus selected option in dropdown
               M.keyDown = true;
-              _this22.dropdown.focusedIndex = selectedOption.index();
-              _this22.dropdown._focusFocusedItem();
+              _this19.dropdown.focusedIndex = selectedOption.index();
+              _this19.dropdown._focusFocusedItem();
               M.keyDown = false;
 
               // Handle scrolling to selected option
-              if (_this22.dropdown.isScrollable) {
-                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this22.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
-                scrollOffset -= _this22.dropdownOptions.clientHeight / 2; // center in dropdown
-                _this22.dropdownOptions.scrollTop = scrollOffset;
+              if (_this19.dropdown.isScrollable) {
+                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this19.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
+                scrollOffset -= _this19.dropdownOptions.clientHeight / 2; // center in dropdown
+                _this19.dropdownOptions.scrollTop = scrollOffset;
               }
             }
           };

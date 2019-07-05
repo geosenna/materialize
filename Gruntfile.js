@@ -162,7 +162,7 @@ module.exports = function(grunt) {
           // 'js/tooltip.js',
           // 'js/waves.js',
           'js/toasts.js',
-          'js/sidenav.js',
+          // 'js/sidenav.js',
           // 'js/scrollspy.js',
           'js/autocomplete.js',
           // 'js/forms.js',

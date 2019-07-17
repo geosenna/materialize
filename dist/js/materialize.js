@@ -2881,6 +2881,651 @@ $jscomp.polyfill = function (e, r, p, m) {
     return new Toast(options);
   };
 })(cash, M.anime);
+;(function ($, anim) {
+  'use strict';
+
+  var _defaults = {
+    edge: 'left',
+    draggable: true,
+    inDuration: 250,
+    outDuration: 200,
+    onOpenStart: null,
+    onOpenEnd: null,
+    onCloseStart: null,
+    onCloseEnd: null,
+    preventScrolling: true
+  };
+
+  /**
+   * @class
+   */
+
+  var Sidenav = function (_Component2) {
+    _inherits(Sidenav, _Component2);
+
+    /**
+     * Construct Sidenav instance and set up overlay
+     * @constructor
+     * @param {Element} el
+     * @param {Object} options
+     */
+    function Sidenav(el, options) {
+      _classCallCheck(this, Sidenav);
+
+      var _this9 = _possibleConstructorReturn(this, (Sidenav.__proto__ || Object.getPrototypeOf(Sidenav)).call(this, Sidenav, el, options));
+
+      _this9.el.M_Sidenav = _this9;
+      _this9.id = _this9.$el.attr('id');
+
+      /**
+       * Options for the Sidenav
+       * @member Sidenav#options
+       * @prop {String} [edge='left'] - Side of screen on which Sidenav appears
+       * @prop {Boolean} [draggable=true] - Allow swipe gestures to open/close Sidenav
+       * @prop {Number} [inDuration=250] - Length in ms of enter transition
+       * @prop {Number} [outDuration=200] - Length in ms of exit transition
+       * @prop {Function} onOpenStart - Function called when sidenav starts entering
+       * @prop {Function} onOpenEnd - Function called when sidenav finishes entering
+       * @prop {Function} onCloseStart - Function called when sidenav starts exiting
+       * @prop {Function} onCloseEnd - Function called when sidenav finishes exiting
+       */
+      _this9.options = $.extend({}, Sidenav.defaults, options);
+
+      /**
+       * Describes open/close state of Sidenav
+       * @type {Boolean}
+       */
+      _this9.isOpen = false;
+
+      /**
+       * Describes if Sidenav is fixed
+       * @type {Boolean}
+       */
+      _this9.isFixed = _this9.el.classList.contains('sidenav-fixed');
+
+      /**
+       * Describes if Sidenav is being draggeed
+       * @type {Boolean}
+       */
+      _this9.isDragged = false;
+
+      // Window size variables for window resize checks
+      _this9.lastWindowWidth = window.innerWidth;
+      _this9.lastWindowHeight = window.innerHeight;
+
+      _this9._createOverlay();
+      _this9._createDragTarget();
+      _this9._setupEventHandlers();
+      _this9._setupClasses();
+      _this9._setupFixed();
+
+      Sidenav._sidenavs.push(_this9);
+      return _this9;
+    }
+
+    _createClass(Sidenav, [{
+      key: "destroy",
+
+
+      /**
+       * Teardown component
+       */
+      value: function destroy() {
+        this._removeEventHandlers();
+        this._enableBodyScrolling();
+        this._overlay.parentNode.removeChild(this._overlay);
+        this.dragTarget.parentNode.removeChild(this.dragTarget);
+        this.el.M_Sidenav = undefined;
+        this.el.style.transform = '';
+
+        var index = Sidenav._sidenavs.indexOf(this);
+        if (index >= 0) {
+          Sidenav._sidenavs.splice(index, 1);
+        }
+      }
+    }, {
+      key: "_createOverlay",
+      value: function _createOverlay() {
+        var overlay = document.createElement('div');
+        this._closeBound = this.close.bind(this);
+        overlay.classList.add('sidenav-overlay');
+
+        overlay.addEventListener('click', this._closeBound);
+
+        document.body.appendChild(overlay);
+        this._overlay = overlay;
+      }
+    }, {
+      key: "_setupEventHandlers",
+      value: function _setupEventHandlers() {
+        if (Sidenav._sidenavs.length === 0) {
+          document.body.addEventListener('click', this._handleTriggerClick);
+        }
+
+        this._handleDragTargetDragBound = this._handleDragTargetDrag.bind(this);
+        this._handleDragTargetReleaseBound = this._handleDragTargetRelease.bind(this);
+        this._handleCloseDragBound = this._handleCloseDrag.bind(this);
+        this._handleCloseReleaseBound = this._handleCloseRelease.bind(this);
+        this._handleCloseTriggerClickBound = this._handleCloseTriggerClick.bind(this);
+
+        this.dragTarget.addEventListener('touchmove', this._handleDragTargetDragBound);
+        this.dragTarget.addEventListener('touchend', this._handleDragTargetReleaseBound);
+        this._overlay.addEventListener('touchmove', this._handleCloseDragBound);
+        this._overlay.addEventListener('touchend', this._handleCloseReleaseBound);
+        this.el.addEventListener('touchmove', this._handleCloseDragBound);
+        this.el.addEventListener('touchend', this._handleCloseReleaseBound);
+        this.el.addEventListener('click', this._handleCloseTriggerClickBound);
+
+        // Add resize for side nav fixed
+        if (this.isFixed) {
+          this._handleWindowResizeBound = this._handleWindowResize.bind(this);
+          window.addEventListener('resize', this._handleWindowResizeBound);
+        }
+      }
+    }, {
+      key: "_removeEventHandlers",
+      value: function _removeEventHandlers() {
+        if (Sidenav._sidenavs.length === 1) {
+          document.body.removeEventListener('click', this._handleTriggerClick);
+        }
+
+        this.dragTarget.removeEventListener('touchmove', this._handleDragTargetDragBound);
+        this.dragTarget.removeEventListener('touchend', this._handleDragTargetReleaseBound);
+        this._overlay.removeEventListener('touchmove', this._handleCloseDragBound);
+        this._overlay.removeEventListener('touchend', this._handleCloseReleaseBound);
+        this.el.removeEventListener('touchmove', this._handleCloseDragBound);
+        this.el.removeEventListener('touchend', this._handleCloseReleaseBound);
+        this.el.removeEventListener('click', this._handleCloseTriggerClickBound);
+
+        // Remove resize for side nav fixed
+        if (this.isFixed) {
+          window.removeEventListener('resize', this._handleWindowResizeBound);
+        }
+      }
+
+      /**
+       * Handle Trigger Click
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_handleTriggerClick",
+      value: function _handleTriggerClick(e) {
+        var $trigger = $(e.target).closest('.sidenav-trigger');
+        if (e.target && $trigger.length) {
+          var sidenavId = M.getIdFromTrigger($trigger[0]);
+
+          var sidenavInstance = document.getElementById(sidenavId).M_Sidenav;
+          if (sidenavInstance) {
+            sidenavInstance.open($trigger);
+          }
+          e.preventDefault();
+        }
+      }
+
+      /**
+       * Set variables needed at the beggining of drag
+       * and stop any current transition.
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_startDrag",
+      value: function _startDrag(e) {
+        var clientX = e.targetTouches[0].clientX;
+        this.isDragged = true;
+        this._startingXpos = clientX;
+        this._xPos = this._startingXpos;
+        this._time = Date.now();
+        this._width = this.el.getBoundingClientRect().width;
+        this._overlay.style.display = 'block';
+        this._initialScrollTop = this.isOpen ? this.el.scrollTop : M.getDocumentScrollTop();
+        this._verticallyScrolling = false;
+        anim.remove(this.el);
+        anim.remove(this._overlay);
+      }
+
+      /**
+       * Set variables needed at each drag move update tick
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_dragMoveUpdate",
+      value: function _dragMoveUpdate(e) {
+        var clientX = e.targetTouches[0].clientX;
+        var currentScrollTop = this.isOpen ? this.el.scrollTop : M.getDocumentScrollTop();
+        this.deltaX = Math.abs(this._xPos - clientX);
+        this._xPos = clientX;
+        this.velocityX = this.deltaX / (Date.now() - this._time);
+        this._time = Date.now();
+        if (this._initialScrollTop !== currentScrollTop) {
+          this._verticallyScrolling = true;
+        }
+      }
+
+      /**
+       * Handles Dragging of Sidenav
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_handleDragTargetDrag",
+      value: function _handleDragTargetDrag(e) {
+        // Check if draggable
+        if (!this.options.draggable || this._isCurrentlyFixed() || this._verticallyScrolling) {
+          return;
+        }
+
+        // If not being dragged, set initial drag start variables
+        if (!this.isDragged) {
+          this._startDrag(e);
+        }
+
+        // Run touchmove updates
+        this._dragMoveUpdate(e);
+
+        // Calculate raw deltaX
+        var totalDeltaX = this._xPos - this._startingXpos;
+
+        // dragDirection is the attempted user drag direction
+        var dragDirection = totalDeltaX > 0 ? 'right' : 'left';
+
+        // Don't allow totalDeltaX to exceed Sidenav width or be dragged in the opposite direction
+        totalDeltaX = Math.min(this._width, Math.abs(totalDeltaX));
+        if (this.options.edge === dragDirection) {
+          totalDeltaX = 0;
+        }
+
+        /**
+         * transformX is the drag displacement
+         * transformPrefix is the initial transform placement
+         * Invert values if Sidenav is right edge
+         */
+        var transformX = totalDeltaX;
+        var transformPrefix = 'translateX(-100%)';
+        if (this.options.edge === 'right') {
+          transformPrefix = 'translateX(100%)';
+          transformX = -transformX;
+        }
+
+        // Calculate open/close percentage of sidenav, with open = 1 and close = 0
+        this.percentOpen = Math.min(1, totalDeltaX / this._width);
+
+        // Set transform and opacity styles
+        this.el.style.transform = transformPrefix + " translateX(" + transformX + "px)";
+        this._overlay.style.opacity = this.percentOpen;
+      }
+
+      /**
+       * Handle Drag Target Release
+       */
+
+    }, {
+      key: "_handleDragTargetRelease",
+      value: function _handleDragTargetRelease() {
+        if (this.isDragged) {
+          if (this.percentOpen > 0.2) {
+            this.open();
+          } else {
+            this._animateOut();
+          }
+
+          this.isDragged = false;
+          this._verticallyScrolling = false;
+        }
+      }
+
+      /**
+       * Handle Close Drag
+       * @param {Event} e
+       */
+
+    }, {
+      key: "_handleCloseDrag",
+      value: function _handleCloseDrag(e) {
+        if (this.isOpen) {
+          // Check if draggable
+          if (!this.options.draggable || this._isCurrentlyFixed() || this._verticallyScrolling) {
+            return;
+          }
+
+          // If not being dragged, set initial drag start variables
+          if (!this.isDragged) {
+            this._startDrag(e);
+          }
+
+          // Run touchmove updates
+          this._dragMoveUpdate(e);
+
+          // Calculate raw deltaX
+          var totalDeltaX = this._xPos - this._startingXpos;
+
+          // dragDirection is the attempted user drag direction
+          var dragDirection = totalDeltaX > 0 ? 'right' : 'left';
+
+          // Don't allow totalDeltaX to exceed Sidenav width or be dragged in the opposite direction
+          totalDeltaX = Math.min(this._width, Math.abs(totalDeltaX));
+          if (this.options.edge !== dragDirection) {
+            totalDeltaX = 0;
+          }
+
+          var transformX = -totalDeltaX;
+          if (this.options.edge === 'right') {
+            transformX = -transformX;
+          }
+
+          // Calculate open/close percentage of sidenav, with open = 1 and close = 0
+          this.percentOpen = Math.min(1, 1 - totalDeltaX / this._width);
+
+          // Set transform and opacity styles
+          this.el.style.transform = "translateX(" + transformX + "px)";
+          this._overlay.style.opacity = this.percentOpen;
+        }
+      }
+
+      /**
+       * Handle Close Release
+       */
+
+    }, {
+      key: "_handleCloseRelease",
+      value: function _handleCloseRelease() {
+        if (this.isOpen && this.isDragged) {
+          if (this.percentOpen > 0.8) {
+            this._animateIn();
+          } else {
+            this.close();
+          }
+
+          this.isDragged = false;
+          this._verticallyScrolling = false;
+        }
+      }
+
+      /**
+       * Handles closing of Sidenav when element with class .sidenav-close
+       */
+
+    }, {
+      key: "_handleCloseTriggerClick",
+      value: function _handleCloseTriggerClick(e) {
+        var $closeTrigger = $(e.target).closest('.sidenav-close');
+        if ($closeTrigger.length && !this._isCurrentlyFixed()) {
+          this.close();
+        }
+      }
+
+      /**
+       * Handle Window Resize
+       */
+
+    }, {
+      key: "_handleWindowResize",
+      value: function _handleWindowResize() {
+        // Only handle horizontal resizes
+        if (this.lastWindowWidth !== window.innerWidth) {
+          if (window.innerWidth > 992) {
+            this.open();
+          } else {
+            this.close();
+          }
+        }
+
+        this.lastWindowWidth = window.innerWidth;
+        this.lastWindowHeight = window.innerHeight;
+      }
+    }, {
+      key: "_setupClasses",
+      value: function _setupClasses() {
+        if (this.options.edge === 'right') {
+          this.el.classList.add('right-aligned');
+          this.dragTarget.classList.add('right-aligned');
+        }
+      }
+    }, {
+      key: "_removeClasses",
+      value: function _removeClasses() {
+        this.el.classList.remove('right-aligned');
+        this.dragTarget.classList.remove('right-aligned');
+      }
+    }, {
+      key: "_setupFixed",
+      value: function _setupFixed() {
+        if (this._isCurrentlyFixed()) {
+          this.open();
+        }
+      }
+    }, {
+      key: "_isCurrentlyFixed",
+      value: function _isCurrentlyFixed() {
+        return this.isFixed && window.innerWidth > 992;
+      }
+    }, {
+      key: "_createDragTarget",
+      value: function _createDragTarget() {
+        var dragTarget = document.createElement('div');
+        dragTarget.classList.add('drag-target');
+        document.body.appendChild(dragTarget);
+        this.dragTarget = dragTarget;
+      }
+    }, {
+      key: "_preventBodyScrolling",
+      value: function _preventBodyScrolling() {
+        var body = document.body;
+        body.style.overflow = 'hidden';
+      }
+    }, {
+      key: "_enableBodyScrolling",
+      value: function _enableBodyScrolling() {
+        var body = document.body;
+        body.style.overflow = '';
+      }
+    }, {
+      key: "open",
+      value: function open() {
+        if (this.isOpen === true) {
+          return;
+        }
+
+        this.isOpen = true;
+
+        // Run onOpenStart callback
+        if (typeof this.options.onOpenStart === 'function') {
+          this.options.onOpenStart.call(this, this.el);
+        }
+
+        // Handle fixed Sidenav
+        if (this._isCurrentlyFixed()) {
+          anim.remove(this.el);
+          anim({
+            targets: this.el,
+            translateX: 0,
+            duration: 0,
+            easing: 'easeOutQuad'
+          });
+          this._enableBodyScrolling();
+          this._overlay.style.display = 'none';
+
+          // Handle non-fixed Sidenav
+        } else {
+          if (this.options.preventScrolling) {
+            this._preventBodyScrolling();
+          }
+
+          if (!this.isDragged || this.percentOpen != 1) {
+            this._animateIn();
+          }
+        }
+      }
+    }, {
+      key: "close",
+      value: function close() {
+        if (this.isOpen === false) {
+          return;
+        }
+
+        this.isOpen = false;
+
+        // Run onCloseStart callback
+        if (typeof this.options.onCloseStart === 'function') {
+          this.options.onCloseStart.call(this, this.el);
+        }
+
+        // Handle fixed Sidenav
+        if (this._isCurrentlyFixed()) {
+          var transformX = this.options.edge === 'left' ? '-105%' : '105%';
+          this.el.style.transform = "translateX(" + transformX + ")";
+
+          // Handle non-fixed Sidenav
+        } else {
+          this._enableBodyScrolling();
+
+          if (!this.isDragged || this.percentOpen != 0) {
+            this._animateOut();
+          } else {
+            this._overlay.style.display = 'none';
+          }
+        }
+      }
+    }, {
+      key: "_animateIn",
+      value: function _animateIn() {
+        this._animateSidenavIn();
+        this._animateOverlayIn();
+      }
+    }, {
+      key: "_animateSidenavIn",
+      value: function _animateSidenavIn() {
+        var _this10 = this;
+
+        var slideOutPercent = this.options.edge === 'left' ? -1 : 1;
+        if (this.isDragged) {
+          slideOutPercent = this.options.edge === 'left' ? slideOutPercent + this.percentOpen : slideOutPercent - this.percentOpen;
+        }
+
+        anim.remove(this.el);
+        anim({
+          targets: this.el,
+          translateX: [slideOutPercent * 100 + "%", 0],
+          duration: this.options.inDuration,
+          easing: 'easeOutQuad',
+          complete: function () {
+            // Run onOpenEnd callback
+            if (typeof _this10.options.onOpenEnd === 'function') {
+              _this10.options.onOpenEnd.call(_this10, _this10.el);
+            }
+          }
+        });
+      }
+    }, {
+      key: "_animateOverlayIn",
+      value: function _animateOverlayIn() {
+        var start = 0;
+        if (this.isDragged) {
+          start = this.percentOpen;
+        } else {
+          $(this._overlay).css({
+            display: 'block'
+          });
+        }
+
+        anim.remove(this._overlay);
+        anim({
+          targets: this._overlay,
+          opacity: [start, 1],
+          duration: this.options.inDuration,
+          easing: 'easeOutQuad'
+        });
+      }
+    }, {
+      key: "_animateOut",
+      value: function _animateOut() {
+        this._animateSidenavOut();
+        this._animateOverlayOut();
+      }
+    }, {
+      key: "_animateSidenavOut",
+      value: function _animateSidenavOut() {
+        var _this11 = this;
+
+        var endPercent = this.options.edge === 'left' ? -1 : 1;
+        var slideOutPercent = 0;
+        if (this.isDragged) {
+          slideOutPercent = this.options.edge === 'left' ? endPercent + this.percentOpen : endPercent - this.percentOpen;
+        }
+
+        anim.remove(this.el);
+        anim({
+          targets: this.el,
+          translateX: [slideOutPercent * 100 + "%", endPercent * 105 + "%"],
+          duration: this.options.outDuration,
+          easing: 'easeOutQuad',
+          complete: function () {
+            // Run onOpenEnd callback
+            if (typeof _this11.options.onCloseEnd === 'function') {
+              _this11.options.onCloseEnd.call(_this11, _this11.el);
+            }
+          }
+        });
+      }
+    }, {
+      key: "_animateOverlayOut",
+      value: function _animateOverlayOut() {
+        var _this12 = this;
+
+        anim.remove(this._overlay);
+        anim({
+          targets: this._overlay,
+          opacity: 0,
+          duration: this.options.outDuration,
+          easing: 'easeOutQuad',
+          complete: function () {
+            $(_this12._overlay).css('display', 'none');
+          }
+        });
+      }
+    }], [{
+      key: "init",
+      value: function init(els, options) {
+        return _get(Sidenav.__proto__ || Object.getPrototypeOf(Sidenav), "init", this).call(this, this, els, options);
+      }
+
+      /**
+       * Get Instance
+       */
+
+    }, {
+      key: "getInstance",
+      value: function getInstance(el) {
+        var domElem = !!el.jquery ? el[0] : el;
+        return domElem.M_Sidenav;
+      }
+    }, {
+      key: "defaults",
+      get: function () {
+        return _defaults;
+      }
+    }]);
+
+    return Sidenav;
+  }(Component);
+
+  /**
+   * @static
+   * @memberof Sidenav
+   * @type {Array.<Sidenav>}
+   */
+
+
+  Sidenav._sidenavs = [];
+
+  window.M.Sidenav = Sidenav;
+
+  if (M.jQueryLoaded) {
+    M.initializeJqueryWrapper(Sidenav, 'sidenav', 'M_Sidenav');
+  }
+})(cash, M.anime);
 ;(function ($) {
   'use strict';
 
@@ -2900,8 +3545,8 @@ $jscomp.polyfill = function (e, r, p, m) {
    *
    */
 
-  var Autocomplete = function (_Component2) {
-    _inherits(Autocomplete, _Component2);
+  var Autocomplete = function (_Component3) {
+    _inherits(Autocomplete, _Component3);
 
     /**
      * Construct Autocomplete instance
@@ -2912,9 +3557,9 @@ $jscomp.polyfill = function (e, r, p, m) {
     function Autocomplete(el, options) {
       _classCallCheck(this, Autocomplete);
 
-      var _this9 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
+      var _this13 = _possibleConstructorReturn(this, (Autocomplete.__proto__ || Object.getPrototypeOf(Autocomplete)).call(this, Autocomplete, el, options));
 
-      _this9.el.M_Autocomplete = _this9;
+      _this13.el.M_Autocomplete = _this13;
 
       /**
        * Options for the autocomplete
@@ -2928,20 +3573,20 @@ $jscomp.polyfill = function (e, r, p, m) {
        * @prop {Boolean} noWrap
        * @prop {Function} onCycleTo
        */
-      _this9.options = $.extend({}, Autocomplete.defaults, options);
+      _this13.options = $.extend({}, Autocomplete.defaults, options);
 
       // Setup
-      _this9.isOpen = false;
-      _this9.count = 0;
-      _this9.activeIndex = -1;
-      _this9.oldVal;
-      _this9.$inputField = _this9.$el.closest('.input-field');
-      _this9.$active = $();
-      _this9._mousedown = false;
-      _this9._setupDropdown();
+      _this13.isOpen = false;
+      _this13.count = 0;
+      _this13.activeIndex = -1;
+      _this13.oldVal;
+      _this13.$inputField = _this13.$el.closest('.input-field');
+      _this13.$active = $();
+      _this13._mousedown = false;
+      _this13._setupDropdown();
 
-      _this9._setupEventHandlers();
-      return _this9;
+      _this13._setupEventHandlers();
+      return _this13;
     }
 
     _createClass(Autocomplete, [{
@@ -3013,7 +3658,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this10 = this;
+        var _this14 = this;
 
         this.container = document.createElement('ul');
         this.container.id = "autocomplete-options-" + M.guid();
@@ -3026,7 +3671,7 @@ $jscomp.polyfill = function (e, r, p, m) {
           closeOnClick: false,
           coverTrigger: false,
           onItemClick: function (itemEl) {
-            _this10.selectOption($(itemEl));
+            _this14.selectOption($(itemEl));
           }
         });
 
@@ -3238,7 +3883,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_renderDropdown",
       value: function _renderDropdown(data, val) {
-        var _this11 = this;
+        var _this15 = this;
 
         this._resetAutocomplete();
 
@@ -3265,7 +3910,7 @@ $jscomp.polyfill = function (e, r, p, m) {
         // Sort
         if (this.options.sortFunction) {
           var sortFunctionBound = function (a, b) {
-            return _this11.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
+            return _this15.options.sortFunction(a.key.toLowerCase(), b.key.toLowerCase(), val.toLowerCase());
           };
           matchingData.sort(sortFunctionBound);
         }
@@ -3388,8 +4033,8 @@ $jscomp.polyfill = function (e, r, p, m) {
    *
    */
 
-  var FormSelect = function (_Component3) {
-    _inherits(FormSelect, _Component3);
+  var FormSelect = function (_Component4) {
+    _inherits(FormSelect, _Component4);
 
     /**
      * Construct FormSelect instance
@@ -3401,30 +4046,30 @@ $jscomp.polyfill = function (e, r, p, m) {
       _classCallCheck(this, FormSelect);
 
       // Don't init if browser default version
-      var _this12 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
+      var _this16 = _possibleConstructorReturn(this, (FormSelect.__proto__ || Object.getPrototypeOf(FormSelect)).call(this, FormSelect, el, options));
 
-      if (_this12.$el.hasClass('browser-default')) {
-        return _possibleConstructorReturn(_this12);
+      if (_this16.$el.hasClass('browser-default')) {
+        return _possibleConstructorReturn(_this16);
       }
 
-      _this12.el.M_FormSelect = _this12;
+      _this16.el.M_FormSelect = _this16;
 
       /**
        * Options for the select
        * @member FormSelect#options
        */
-      _this12.options = $.extend({}, FormSelect.defaults, options);
+      _this16.options = $.extend({}, FormSelect.defaults, options);
 
-      _this12.isMultiple = _this12.$el.prop('multiple');
+      _this16.isMultiple = _this16.$el.prop('multiple');
 
       // Setup
-      _this12.el.tabIndex = -1;
-      _this12._keysSelected = {};
-      _this12._valueDict = {}; // Maps key to original and generated option element.
-      _this12._setupDropdown();
+      _this16.el.tabIndex = -1;
+      _this16._keysSelected = {};
+      _this16._valueDict = {}; // Maps key to original and generated option element.
+      _this16._setupDropdown();
 
-      _this12._setupEventHandlers();
-      return _this12;
+      _this16._setupEventHandlers();
+      return _this16;
     }
 
     _createClass(FormSelect, [{
@@ -3447,14 +4092,14 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupEventHandlers",
       value: function _setupEventHandlers() {
-        var _this13 = this;
+        var _this17 = this;
 
         this._handleSelectChangeBound = this._handleSelectChange.bind(this);
         this._handleOptionClickBound = this._handleOptionClick.bind(this);
         this._handleInputClickBound = this._handleInputClick.bind(this);
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.addEventListener('click', _this13._handleOptionClickBound);
+          el.addEventListener('click', _this17._handleOptionClickBound);
         });
         this.el.addEventListener('change', this._handleSelectChangeBound);
         this.input.addEventListener('click', this._handleInputClickBound);
@@ -3467,10 +4112,10 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_removeEventHandlers",
       value: function _removeEventHandlers() {
-        var _this14 = this;
+        var _this18 = this;
 
         $(this.dropdownOptions).find('li:not(.optgroup)').each(function (el) {
-          el.removeEventListener('click', _this14._handleOptionClickBound);
+          el.removeEventListener('click', _this18._handleOptionClickBound);
         });
         this.el.removeEventListener('change', this._handleSelectChangeBound);
         this.input.removeEventListener('click', this._handleInputClickBound);
@@ -3547,7 +4192,7 @@ $jscomp.polyfill = function (e, r, p, m) {
     }, {
       key: "_setupDropdown",
       value: function _setupDropdown() {
-        var _this15 = this;
+        var _this19 = this;
 
         this.wrapper = document.createElement('div');
         $(this.wrapper).addClass('select-wrapper ' + this.options.classes);
@@ -3570,21 +4215,21 @@ $jscomp.polyfill = function (e, r, p, m) {
             if ($(el).is('option')) {
               // Direct descendant option.
               var optionEl = void 0;
-              if (_this15.isMultiple) {
-                optionEl = _this15._appendOptionWithIcon(_this15.$el, el, 'multiple');
+              if (_this19.isMultiple) {
+                optionEl = _this19._appendOptionWithIcon(_this19.$el, el, 'multiple');
               } else {
-                optionEl = _this15._appendOptionWithIcon(_this15.$el, el);
+                optionEl = _this19._appendOptionWithIcon(_this19.$el, el);
               }
 
-              _this15._addOptionToValueDict(el, optionEl);
+              _this19._addOptionToValueDict(el, optionEl);
             } else if ($(el).is('optgroup')) {
               // Optgroup.
               var selectOptions = $(el).children('option');
-              $(_this15.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
+              $(_this19.dropdownOptions).append($('<li class="optgroup"><span>' + el.getAttribute('label') + '</span></li>')[0]);
 
               selectOptions.each(function (el) {
-                var optionEl = _this15._appendOptionWithIcon(_this15.$el, el, 'optgroup-option');
-                _this15._addOptionToValueDict(el, optionEl);
+                var optionEl = _this19._appendOptionWithIcon(_this19.$el, el, 'optgroup-option');
+                _this19._addOptionToValueDict(el, optionEl);
               });
             }
           });
@@ -3615,20 +4260,20 @@ $jscomp.polyfill = function (e, r, p, m) {
 
           // Add callback for centering selected option when dropdown content is scrollable
           dropdownOptions.onOpenEnd = function (el) {
-            var selectedOption = $(_this15.dropdownOptions).find('.selected').first();
+            var selectedOption = $(_this19.dropdownOptions).find('.selected').first();
 
             if (selectedOption.length) {
               // Focus selected option in dropdown
               M.keyDown = true;
-              _this15.dropdown.focusedIndex = selectedOption.index();
-              _this15.dropdown._focusFocusedItem();
+              _this19.dropdown.focusedIndex = selectedOption.index();
+              _this19.dropdown._focusFocusedItem();
               M.keyDown = false;
 
               // Handle scrolling to selected option
-              if (_this15.dropdown.isScrollable) {
-                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this15.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
-                scrollOffset -= _this15.dropdownOptions.clientHeight / 2; // center in dropdown
-                _this15.dropdownOptions.scrollTop = scrollOffset;
+              if (_this19.dropdown.isScrollable) {
+                var scrollOffset = selectedOption[0].getBoundingClientRect().top - _this19.dropdownOptions.getBoundingClientRect().top; // scroll to selected option
+                scrollOffset -= _this19.dropdownOptions.clientHeight / 2; // center in dropdown
+                _this19.dropdownOptions.scrollTop = scrollOffset;
               }
             }
           };

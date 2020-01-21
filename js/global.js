@@ -24,6 +24,8 @@ if (typeof define === 'function' && define.amd) {
   exports.default = M;
 }
 
+M.version = '1.0.0';
+
 M.keys = {
   TAB: 9,
   ENTER: 13,
@@ -163,6 +165,23 @@ M.guid = (function() {
  */
 M.escapeHash = function(hash) {
   return hash.replace(/(:|\.|\[|\]|,|=|\/)/g, '\\$1');
+};
+
+/**
+ * Get closest ancestor that satisfies the condition
+ * @param {Element} el  Element to find ancestors on
+ * @param {Function} condition  Function that given an ancestor element returns true or false
+ * @returns {Element} Return closest ancestor or null if none satisfies the condition
+ */
+M.getClosestAncestor = function(el, condition) {
+  let ancestor = el.parentNode;
+  while (ancestor !== null && !$(ancestor).is(document)) {
+    if (condition(ancestor)) {
+      return ancestor;
+    }
+    ancestor = ancestor.parentNode;
+  }
+  return null;
 };
 
 M.elementOrParentIsFixed = function(element) {
